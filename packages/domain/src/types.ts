@@ -67,6 +67,8 @@ export interface AppState {
   /** lowercased name -> remembered food */
   foods: Record<string, FoodItem>;
   workouts: Workout[];
+  /** per-field logical timestamps for conflict-free (LWW) merge across clients */
+  clock: Record<string, number>;
   /** local-only: last seen forecast snapshot, for change detection */
   lastWeather: Record<string, { rain: boolean; tmax: number }>;
   /** local-only: Supabase sync config (overrides env when set) */

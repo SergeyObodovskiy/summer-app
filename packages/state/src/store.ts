@@ -8,9 +8,11 @@ import {
   type FoodItem,
   type Meal,
   type SyncConfig,
+  type SyncState,
   type Workout,
 } from "@summer/domain";
 import type { KVStorage } from "@summer/data";
+import { mergeStates } from "./merge";
 
 export interface Actions {
   toggleBlock: (uid: string, done?: boolean) => void;
@@ -31,6 +33,8 @@ export interface Actions {
   setLastWeather: (snapshot: AppState["lastWeather"]) => void;
   setSyncConfig: (config: SyncConfig | null) => void;
 
+  /** Conflict-free merge of a remote state (used by realtime sync). */
+  mergeRemote: (remote: SyncState) => void;
   replaceAll: (state: Partial<AppState>) => void;
   reset: () => void;
 }
@@ -53,10 +57,13 @@ export function initialState(): AppState {
     kbjuLog: {},
     foods: {},
     workouts: [],
+    clock: {},
     lastWeather: {},
     syncConfig: null,
   };
 }
+
+const now = () => Date.now();
 
 /** Guarantee every known block appears exactly once across the layout. */
 export function normalizeLayout(layout: string[][] | undefined): string[][] {
@@ -103,11 +110,18 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
           toggleBlock: (id, done) =>
             set((s) => ({
               dayDone: { ...s.dayDone, [id]: done ?? !s.dayDone[id] },
+              clock: { ...s.clock, ["dayDone:" + id]: now() },
             })),
           setLevel: (id, level) =>
-            set((s) => ({ goalLevel: { ...s.goalLevel, [id]: level } })),
+            set((s) => ({
+              goalLevel: { ...s.goalLevel, [id]: level },
+              clock: { ...s.clock, ["goalLevel:" + id]: now() },
+            })),
           setMovedDate: (id, date) =>
-            set((s) => ({ goalMoved: { ...s.goalMoved, [id]: date } })),
+            set((s) => ({
+              goalMoved: { ...s.goalMoved, [id]: date },
+              clock: { ...s.clock, ["goalMoved:" + id]: now() },
+            })),
           moveBlock: (id, toDay, toIndex) =>
             set((s) => {
               const layout = s.layout.map((a) => a.slice());
@@ -117,43 +131,64 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
               }
               const t = (layout[toDay] ??= []);
               t.splice(Math.max(0, Math.min(toIndex, t.length)), 0, id);
-              return { layout };
+              return { layout, clock: { ...s.clock, layout: now() } };
             }),
-          setLayout: (layout) => set({ layout: normalizeLayout(layout) }),
+          setLayout: (layout) =>
+            set((s) => ({ layout: normalizeLayout(layout), clock: { ...s.clock, layout: now() } })),
 
           addWorkout: (w) =>
-            set((s) => ({ workouts: [...s.workouts, { ...w, id: uid() }] })),
+            set((s) => {
+              const id = uid();
+              return {
+                workouts: [...s.workouts, { ...w, id }],
+                clock: { ...s.clock, ["workout:" + id]: now() },
+              };
+            }),
           removeWorkout: (id) =>
-            set((s) => ({ workouts: s.workouts.filter((w) => w.id !== id) })),
+            set((s) => ({
+              workouts: s.workouts.filter((w) => w.id !== id),
+              clock: { ...s.clock, ["workout:" + id]: now() },
+            })),
           updateWorkout: (id, patch) =>
             set((s) => ({
-              workouts: s.workouts.map((w) =>
-                w.id === id ? { ...w, ...patch } : w
-              ),
+              workouts: s.workouts.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+              clock: { ...s.clock, ["workout:" + id]: now() },
             })),
 
           addMeal: (date, meal) =>
-            set((s) => ({
-              kbjuLog: {
-                ...s.kbjuLog,
-                [date]: [...(s.kbjuLog[date] ?? []), { ...meal, id: uid() }],
-              },
-            })),
+            set((s) => {
+              const id = uid();
+              return {
+                kbjuLog: { ...s.kbjuLog, [date]: [...(s.kbjuLog[date] ?? []), { ...meal, id }] },
+                clock: { ...s.clock, ["meal:" + id]: now() },
+              };
+            }),
           removeMeal: (date, id) =>
             set((s) => ({
-              kbjuLog: {
-                ...s.kbjuLog,
-                [date]: (s.kbjuLog[date] ?? []).filter((m) => m.id !== id),
-              },
+              kbjuLog: { ...s.kbjuLog, [date]: (s.kbjuLog[date] ?? []).filter((m) => m.id !== id) },
+              clock: { ...s.clock, ["meal:" + id]: now() },
             })),
           rememberFood: (food) =>
-            set((s) => ({
-              foods: { ...s.foods, [food.name.trim().toLowerCase()]: food },
-            })),
+            set((s) => {
+              const key = food.name.trim().toLowerCase();
+              return {
+                foods: { ...s.foods, [key]: food },
+                clock: { ...s.clock, ["foods:" + key]: now() },
+              };
+            }),
 
           setLastWeather: (snapshot) => set({ lastWeather: snapshot }),
           setSyncConfig: (config) => set({ syncConfig: config }),
 
+          mergeRemote: (remote) =>
+            set((s) => {
+              const local: SyncState = {
+                v: s.v, dayDone: s.dayDone, goalLevel: s.goalLevel, goalMoved: s.goalMoved,
+                layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts, clock: s.clock,
+              };
+              const merged = mergeStates(local, remote);
+              return { ...merged, layout: normalizeLayout(merged.layout) };
+            }),
           replaceAll: (partial) =>
             set((s) => ({
               ...s,
@@ -175,6 +210,7 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
           kbjuLog: s.kbjuLog,
           foods: s.foods,
           workouts: s.workouts,
+          clock: s.clock,
           lastWeather: s.lastWeather,
           syncConfig: s.syncConfig,
         }),

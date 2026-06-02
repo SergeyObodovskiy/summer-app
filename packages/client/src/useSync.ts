@@ -5,6 +5,19 @@ import { useRawStore } from "./StoreProvider";
 
 const writerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+/** Canonical JSON (object keys sorted at every level) so logically-equal states
+ *  compare equal regardless of key order — prevents sync ping-pong. Arrays keep order. */
+function stable(value: unknown): string {
+  return JSON.stringify(value, (_k, val) =>
+    val && typeof val === "object" && !Array.isArray(val)
+      ? Object.keys(val as Record<string, unknown>).sort().reduce<Record<string, unknown>>(
+          (o, k) => ((o[k] = (val as Record<string, unknown>)[k]), o),
+          {}
+        )
+      : val
+  );
+}
+
 /** Wire Supabase realtime sync to the store. No-op until config + code are provided.
  *  Loop-safe: identical snapshots are never re-applied or re-pushed, so a remote
  *  update can't bounce back as a new local change (no check/uncheck flicker). */
@@ -25,28 +38,30 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
       const s = store.getState();
       return {
         v: s.v, dayDone: s.dayDone, goalLevel: s.goalLevel, goalMoved: s.goalMoved,
-        layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts,
+        layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts, clock: s.clock,
       };
     };
 
     const applyRemote = (remote: SyncState) => {
-      const rj = JSON.stringify(remote);
-      // Ignore data identical to what we already have — this is what breaks the echo loop.
-      if (rj === JSON.stringify(snapshot())) {
-        lastJSON.current = rj;
-        return;
-      }
-      lastJSON.current = rj;
-      store.getState().actions.replaceAll(remote);
+      // Conflict-free merge (per-field LWW) — concurrent edits in other tabs are preserved.
+      if (stable(remote) === stable(snapshot())) return;
+      store.getState().actions.mergeRemote(remote);
     };
 
-    lastJSON.current = JSON.stringify(snapshot());
+    lastJSON.current = stable(snapshot());
 
     connectSync(sb, code, writerId, snapshot(), applyRemote)
       .then((h) => {
         if (!active) return h.dispose();
         handle.current = h;
         ready.current = true; // only start pushing AFTER the initial cloud pull
+        // push our (possibly merged) state once so peers receive our contributions
+        const snap = snapshot();
+        const json = stable(snap);
+        if (json !== lastJSON.current) {
+          lastJSON.current = json;
+          h.push(snap).catch(() => {});
+        }
       })
       .catch((e) => console.warn("sync connect failed", e));
 
@@ -55,7 +70,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         const snap = snapshot();
-        const json = JSON.stringify(snap);
+        const json = stable(snap);
         if (json === lastJSON.current) return; // nothing actually changed — don't push
         lastJSON.current = json;
         handle.current?.push(snap).catch(() => {});
