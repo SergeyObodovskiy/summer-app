@@ -1,17 +1,16 @@
 # Summer App — кросс-платформенная версия
 
-Монорепо: один и тот же UI и вся логика работают на **web (Next.js)**, **iOS/Android (Expo / React Native)** и **десктопе (Tauri)**.
+Монорепо: **общие логика и данные**, а UI нативный для каждой платформы — **web на Next.js (DOM)**, **iOS/Android на React Native (Expo)**, **десктоп на Tauri**.
 
 ## Стек
 
 | Слой | Технология |
 |---|---|
 | Монорепо | Turborepo + pnpm |
-| Web | Next.js 14 (App Router) + react-native-web |
-| Mobile | Expo + Expo Router |
-| Desktop | Tauri (оборачивает web-сборку) |
-| UI / стили | React Native primitives + NativeWind (Tailwind для web+native) |
-| Навигация | Expo Router (native) / Next App Router (web) |
+| Web | Next.js 14 (App Router) — нативный DOM-UI (React + Tailwind), `@dnd-kit` |
+| Mobile | Expo + Expo Router — React Native + NativeWind, draggable-flatlist |
+| Desktop | Tauri (оборачивает web-сборку Next) |
+| Общий React-слой | `@summer/client` — провайдеры/хуки (store, погода, sync), без UI |
 | Состояние | Zustand + persist |
 | Данные | Supabase (realtime sync) + KV-хранилище (localStorage / MMKV) |
 | Язык | TypeScript (strict) |
@@ -21,19 +20,20 @@
 ```
 summer-app/
 ├─ apps/
-│  ├─ next/        # web (Next.js)
-│  ├─ expo/        # iOS/Android (Expo Router)
+│  ├─ next/        # web — нативный DOM-UI (components/ + features/)
+│  ├─ expo/        # iOS/Android (Expo Router) — RN-UI
 │  └─ desktop/     # Tauri (обёртка над web-сборкой)
 └─ packages/
    ├─ domain/      # типы, данные расписания, чистая логика (0 зависимостей от UI)
    ├─ data/        # Supabase + KV-хранилище + sync
    ├─ state/       # Zustand store + селекторы
-   ├─ ui/          # универсальные примитивы (Box, Txt, Card, Checkbox, ...)
-   ├─ app/         # экраны (WeekScreen, KbjuScreen) + провайдеры
+   ├─ client/      # React-провайдеры и хуки (общие для web и mobile, без UI)
+   ├─ ui/          # RN-примитивы (только mobile)
+   ├─ app/         # RN-экраны (только mobile)
    └─ config/      # дизайн-токены + общий tailwind-preset
 ```
 
-**Принцип портируемости:** весь UI написан один раз в `packages/app` на RN-примитивах из `packages/ui`. На web их рендерит `react-native-web`, на мобайле — нативный React Native, на десктопе — та же web-сборка внутри Tauri. Платформам остаётся только тонкая «обёртка» (роуты + инъекция хранилища).
+**Принцип:** ключевая логика и слои данных (`domain` + `data` + `state` + `client`) — **общие**. Отличается только UI: web рисует своими DOM-компонентами в `apps/next`, mobile — RN-компонентами в `packages/app` + `packages/ui`. Так web не платит за react-native-web по перформансу, а у мобайла остаётся полный доступ к нативному SDK. Цветовые токены общие через `@summer/config` (один Tailwind-preset для DOM и NativeWind).
 
 ## Установка
 

@@ -10,20 +10,17 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@summer/app": "workspace:*",
+    "@summer/client": "workspace:*",
     "@summer/data": "workspace:*",
     "@summer/domain": "workspace:*",
     "@summer/state": "workspace:*",
-    "@summer/ui": "workspace:*",
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "clsx": "^2.1.1",
     "next": "14.2.5",
-    "nativewind": "^4.0.36",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-native": "0.74.5",
-    "react-native-web": "^0.19.12"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@summer/config": "workspace:*",

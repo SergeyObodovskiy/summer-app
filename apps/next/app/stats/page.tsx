@@ -1,5 +1,4 @@
-"use client";
-import { StatsScreen } from "@summer/app";
+import { StatsScreen } from "../../features/stats";
 
 export default function Page() {
   return <StatsScreen />;
