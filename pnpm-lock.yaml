@@ -247,6 +247,10 @@ importers:
         version: 5.9.3
 
   packages/ui:
+    dependencies:
+      '@summer/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@types/react':
         specifier: ^18.2.0

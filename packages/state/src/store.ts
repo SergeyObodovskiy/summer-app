@@ -37,6 +37,10 @@ export interface Actions {
 
 export type Store = AppState & { actions: Actions };
 
+/** The bound store returned by createAppStore — re-export so consumers
+ *  (e.g. @summer/app) don't need a direct zustand dependency. */
+export type AppStore = ReturnType<typeof createAppStore>;
+
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 export function initialState(): AppState {

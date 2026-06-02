@@ -5,6 +5,9 @@
   "main": "src/index.tsx",
   "types": "src/index.tsx",
   "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@summer/domain": "workspace:*"
+  },
   "peerDependencies": {
     "react": "*",
     "react-native": "*",

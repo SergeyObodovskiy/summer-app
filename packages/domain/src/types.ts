@@ -79,6 +79,9 @@ export interface SyncConfig {
   code: string;
 }
 
+/** The portion of AppState that travels to the cloud — excludes device-local fields. */
+export type SyncState = Omit<AppState, "lastWeather" | "syncConfig">;
+
 export interface WeatherDay {
   iso: string;
   tmax: number;

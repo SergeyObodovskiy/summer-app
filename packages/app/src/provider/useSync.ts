@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { connectSync, getSupabase, type SupabaseConfig, type SyncHandle } from "@summer/data";
-import type { AppState } from "@summer/domain";
+import type { SyncState } from "@summer/domain";
 import { useRawStore } from "./StoreProvider";
 
 const writerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -16,7 +16,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
     let active = true;
     const sb = getSupabase(config);
 
-    const snapshot = (): AppState => {
+    const snapshot = (): SyncState => {
       const s = store.getState();
       return {
         v: s.v, dayDone: s.dayDone, goalLevel: s.goalLevel, goalMoved: s.goalMoved,

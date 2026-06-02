@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useRef } from "react";
-import { createAppStore, type Store } from "@summer/state";
+import { createAppStore, type Store, type AppStore } from "@summer/state";
 import type { KVStorage } from "@summer/data";
-import type { StoreApi, UseBoundStore } from "zustand";
 
-type BoundStore = UseBoundStore<StoreApi<Store>>;
+type BoundStore = AppStore;
 
 const StoreCtx = createContext<BoundStore | null>(null);
 

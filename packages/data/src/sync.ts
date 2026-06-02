@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AppState } from "@summer/domain";
+import type { SyncState } from "@summer/domain";
 
 const TABLE = "app_state";
 
 export interface SyncHandle {
   /** push the current state (debounced by the caller) */
-  push: (state: AppState) => Promise<void>;
+  push: (state: SyncState) => Promise<void>;
   /** stop realtime subscription */
   dispose: () => void;
 }
@@ -19,8 +19,8 @@ export async function connectSync(
   sb: SupabaseClient,
   code: string,
   writerId: string,
-  local: AppState,
-  onRemote: (state: AppState) => void
+  local: SyncState,
+  onRemote: (state: SyncState) => void
 ): Promise<SyncHandle> {
   const { data, error } = await sb
     .from(TABLE)
@@ -30,7 +30,7 @@ export async function connectSync(
   if (error) throw error;
 
   if (data?.data) {
-    onRemote(data.data as AppState);
+    onRemote(data.data as SyncState);
   } else {
     await sb.from(TABLE).upsert({
       code,
@@ -46,7 +46,7 @@ export async function connectSync(
       { event: "*", schema: "public", table: TABLE, filter: `code=eq.${code}` },
       (payload: any) => {
         const remote = payload.new?.data;
-        if (remote && remote._writer !== writerId) onRemote(remote as AppState);
+        if (remote && remote._writer !== writerId) onRemote(remote as SyncState);
       }
     )
     .subscribe();
