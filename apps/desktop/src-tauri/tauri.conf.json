@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Summer",
+  "version": "1.0.0",
+  "identifier": "com.sergey.summer",
+  "build": {
+    "beforeDevCommand": "pnpm --filter next-web dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "NEXT_EXPORT=1 pnpm --filter next-web build",
+    "frontendDist": "../../next/out"
+  },
+  "app": {
+    "windows": [
+      { "title": "Летнее расписание", "width": 1100, "height": 820, "minWidth": 380 }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"]
+  }
+}

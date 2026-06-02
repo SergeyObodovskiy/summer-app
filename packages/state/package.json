@@ -1,0 +1,14 @@
+{
+  "name": "@summer/state",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@summer/domain": "workspace:*",
+    "@summer/data": "workspace:*",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": { "typescript": "^5.4.5" }
+}

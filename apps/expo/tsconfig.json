@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "nativewind",
+    "noEmit": true,
+    "types": ["nativewind/types", "react"]
+  },
+  "include": ["app", "src", "nativewind-env.d.ts", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

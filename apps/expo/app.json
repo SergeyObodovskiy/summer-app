@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Summer",
+    "slug": "summer-app",
+    "scheme": "summer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.sergey.summer" },
+    "android": { "package": "com.sergey.summer" },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}
