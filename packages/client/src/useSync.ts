@@ -13,10 +13,12 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
   const handle = useRef<SyncHandle | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastJSON = useRef<string>("");
+  const ready = useRef(false);
 
   useEffect(() => {
     if (!config || !code) return;
     let active = true;
+    ready.current = false;
     const sb = getSupabase(config);
 
     const snapshot = (): SyncState => {
@@ -44,10 +46,12 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
       .then((h) => {
         if (!active) return h.dispose();
         handle.current = h;
+        ready.current = true; // only start pushing AFTER the initial cloud pull
       })
       .catch((e) => console.warn("sync connect failed", e));
 
     const unsub = store.subscribe(() => {
+      if (!ready.current) return; // don't push stale local state before we've pulled the cloud
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         const snap = snapshot();

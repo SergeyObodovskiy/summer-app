@@ -39,6 +39,16 @@ export async function connectSync(
     });
   }
 
+  // Drop any existing channel for this code first — avoids duplicate realtime
+  // subscriptions under React StrictMode double-mount in dev.
+  try {
+    (sb.getChannels?.() ?? []).forEach((ch: any) => {
+      if (typeof ch?.topic === "string" && ch.topic.endsWith(`app_state_${code}`)) sb.removeChannel(ch);
+    });
+  } catch {
+    /* ignore */
+  }
+
   const channel = sb
     .channel(`app_state_${code}`)
     .on(
