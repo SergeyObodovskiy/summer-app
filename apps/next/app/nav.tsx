@@ -6,12 +6,15 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/", label: "Неделя" },
   { href: "/kbju", label: "КБЖУ" },
+  { href: "/workouts", label: "Тренировки" },
+  { href: "/stats", label: "Достижения" },
+  { href: "/settings", label: "Настройки" },
 ];
 
 export function Nav() {
   const path = usePathname();
   return (
-    <nav style={{ display: "flex", gap: 8, padding: 12, background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
+    <nav style={{ display: "flex", gap: 8, padding: 12, background: "#fff", borderBottom: "1px solid #e5e7eb", flexWrap: "wrap" }}>
       {tabs.map((t) => {
         const active = path === t.href;
         return (

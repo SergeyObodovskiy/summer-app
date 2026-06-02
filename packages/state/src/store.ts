@@ -7,6 +7,7 @@ import {
   type CompletionLevel,
   type FoodItem,
   type Meal,
+  type SyncConfig,
   type Workout,
 } from "@summer/domain";
 import type { KVStorage } from "@summer/data";
@@ -27,6 +28,9 @@ export interface Actions {
   removeMeal: (date: string, id: string) => void;
   rememberFood: (food: FoodItem) => void;
 
+  setLastWeather: (snapshot: AppState["lastWeather"]) => void;
+  setSyncConfig: (config: SyncConfig | null) => void;
+
   replaceAll: (state: Partial<AppState>) => void;
   reset: () => void;
 }
@@ -45,6 +49,8 @@ export function initialState(): AppState {
     kbjuLog: {},
     foods: {},
     workouts: [],
+    lastWeather: {},
+    syncConfig: null,
   };
 }
 
@@ -141,6 +147,9 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
               foods: { ...s.foods, [food.name.trim().toLowerCase()]: food },
             })),
 
+          setLastWeather: (snapshot) => set({ lastWeather: snapshot }),
+          setSyncConfig: (config) => set({ syncConfig: config }),
+
           replaceAll: (partial) =>
             set((s) => ({
               ...s,
@@ -162,6 +171,8 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
           kbjuLog: s.kbjuLog,
           foods: s.foods,
           workouts: s.workouts,
+          lastWeather: s.lastWeather,
+          syncConfig: s.syncConfig,
         }),
         onRehydrateStorage: () => (state) => {
           if (state) state.layout = normalizeLayout(state.layout);

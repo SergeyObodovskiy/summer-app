@@ -21,6 +21,17 @@ export function fmtTOD(min: number): string {
 
 const DAY_START = 9 * 60; // 9:00
 
+/** Minutes -> "Hч Mм" / "Mм". */
+export function fmtDuration(min: number): string {
+  const v = Math.max(0, Math.round(min));
+  if (v >= 60) {
+    const h = Math.floor(v / 60);
+    const m = v % 60;
+    return m ? `${h}ч ${m}м` : `${h}ч`;
+  }
+  return `${v}м`;
+}
+
 /** Given an ordered list of durations, return sequential time labels from 9:00. */
 export function sequentialTimes(durations: number[]): string[] {
   let cur = DAY_START;

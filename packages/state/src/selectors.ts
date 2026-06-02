@@ -74,6 +74,7 @@ export function selectStats(s: AppState) {
   const goalsDone = categories.filter((c) => c.met).length;
   const totalKm = s.workouts.reduce((a, w) => a + (w.km || 0), 0);
   const totalKcal = s.workouts.reduce((a, w) => a + (w.kcal || 0), 0);
+  const totalMin = s.workouts.reduce((a, w) => a + (w.min || 0), 0);
   return {
     categories,
     goalsDone,
@@ -81,6 +82,7 @@ export function selectStats(s: AppState) {
     workouts: s.workouts.length,
     totalKm: Math.round(totalKm * 10) / 10,
     totalKcal,
+    totalMin,
   };
 }
 

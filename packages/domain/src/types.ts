@@ -67,6 +67,16 @@ export interface AppState {
   /** lowercased name -> remembered food */
   foods: Record<string, FoodItem>;
   workouts: Workout[];
+  /** local-only: last seen forecast snapshot, for change detection */
+  lastWeather: Record<string, { rain: boolean; tmax: number }>;
+  /** local-only: Supabase sync config (overrides env when set) */
+  syncConfig: SyncConfig | null;
+}
+
+export interface SyncConfig {
+  url: string;
+  anonKey: string;
+  code: string;
 }
 
 export interface WeatherDay {
