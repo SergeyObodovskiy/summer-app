@@ -164,9 +164,10 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
           addGoal: (g) =>
             set((s) => {
               const id = uid();
+              const t = now();
               return {
-                goals: [...s.goals, { ...g, id }],
-                clock: { ...s.clock, ["goalItem:" + id]: now() },
+                goals: [...s.goals, { createdAt: t, ...g, id }],
+                clock: { ...s.clock, ["goalItem:" + id]: t },
               };
             }),
           removeGoal: (id) =>

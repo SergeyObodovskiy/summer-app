@@ -178,10 +178,15 @@ function GoalCard({ goal, tree }: { goal: Goal; tree: Tree }) {
 
 export function GoalsScreen() {
   const goals = useAppStore((s) => s.goals);
+  const clock = useAppStore((s) => s.clock);
   const actions = useActions();
   const [title, setTitle] = useState("");
 
   const { tops, tree } = useMemo(() => {
+    // stable insertion order: createdAt, fallback to the sync clock for old items
+    const orderKey = (g: Goal) => g.createdAt ?? clock["goalItem:" + g.id] ?? 0;
+    const byInsertion = (a: Goal, b: Goal) =>
+      orderKey(a) - orderKey(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     const ids = new Set(goals.map((g) => g.id));
     const tree: Tree = new Map();
     const tops: Goal[] = [];
@@ -214,8 +219,10 @@ export function GoalsScreen() {
         walk(g.id);
       }
     }
+    tops.sort(byInsertion);
+    for (const arr of tree.values()) arr.sort(byInsertion);
     return { tops, tree };
-  }, [goals]);
+  }, [goals, clock]);
 
   const add = () => {
     const t = title.trim();

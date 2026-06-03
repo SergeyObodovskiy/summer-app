@@ -49,6 +49,9 @@ export interface Goal {
   parentId?: string;
   /** optional free-form note */
   note?: string;
+  /** creation timestamp (ms) — UI sorts by it so insertion order is stable
+   *  (the sync merge orders the array by id for determinism) */
+  createdAt?: number;
 }
 
 export interface FoodItem {
