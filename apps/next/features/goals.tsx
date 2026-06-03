@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAppStore, useActions } from "@summer/client";
 import type { Goal } from "@summer/domain";
 import { Card } from "../components/ui";
@@ -44,30 +44,19 @@ function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
 }
 
 function Row({
-  row, focused, onFocused, onKeyDown,
+  row, register, onKeyDown,
 }: {
   row: FlatRow;
-  focused: boolean;
-  onFocused: () => void;
+  register: (id: string, el: HTMLInputElement | null) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, row: FlatRow, value: string) => void;
 }) {
   const actions = useActions();
   const { goal, depth } = row;
   const [val, setVal] = useState(goal.title);
   const [noteOpen, setNoteOpen] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
 
   // external change (sync) -> refresh local value
   useEffect(() => setVal(goal.title), [goal.title]);
-
-  useEffect(() => {
-    if (focused && ref.current) {
-      ref.current.focus();
-      const len = ref.current.value.length;
-      ref.current.setSelectionRange(len, len);
-      onFocused();
-    }
-  }, [focused, onFocused]);
 
   const top = depth === 0;
   const btn = "opacity-0 group-hover:opacity-100 text-[12px] text-muted px-1 rounded hover:bg-black/5 transition-opacity";
@@ -77,7 +66,7 @@ function Row({
       <div className="flex items-center gap-2">
         {top ? null : <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />}
         <input
-          ref={ref}
+          ref={(el) => register(goal.id, el)}
           className={
             "flex-1 bg-transparent focus:outline-none py-1 " +
             (top ? "text-[15px] font-semibold text-ink" : "text-[13.5px] text-ink")
@@ -116,9 +105,17 @@ export function GoalsScreen() {
   const goals = useAppStore((s) => s.goals);
   const clock = useAppStore((s) => s.clock);
   const actions = useActions();
-  const [focusId, setFocusId] = useState<string | null>(null);
   const [phantom, setPhantom] = useState("");
   const phantomRef = useRef<HTMLInputElement>(null);
+
+  // focus management: rows register their inputs; after a structural change
+  // we focus the pending id in a layout effect (before paint — no flicker)
+  const inputs = useRef(new Map<string, HTMLInputElement>());
+  const pendingFocus = useRef<string | null>(null);
+  const register = (id: string, el: HTMLInputElement | null) => {
+    if (el) inputs.current.set(id, el);
+    else inputs.current.delete(id);
+  };
 
   const orderKey = useMemo(() => {
     return (g: Goal) => g.order ?? g.createdAt ?? clock["goalItem:" + g.id] ?? 0;
@@ -201,14 +198,14 @@ export function GoalsScreen() {
       const id = children.length
         ? actions.addGoal({ title: "", parentId: g.id, order: between(children, -1) })
         : actions.addGoal({ title: "", parentId: g.parentId, order: between(sibs, idx) });
-      setFocusId(id);
+      pendingFocus.current = id;
     } else if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       const prev = idx > 0 ? sibs[idx - 1] : undefined;
       if (!prev) return; // nothing to nest under
       const newSibs = tree.get(prev.id) ?? [];
       actions.updateGoal(g.id, { parentId: prev.id, order: between(newSibs, newSibs.length - 1) });
-      setFocusId(g.id);
+      pendingFocus.current = g.id;
     } else if (e.key === "Tab" && e.shiftKey) {
       e.preventDefault();
       if (!g.parentId) return; // already top-level
@@ -216,15 +213,29 @@ export function GoalsScreen() {
       const parentSibs = siblingsOf(parent?.parentId);
       const pIdx = parentSibs.findIndex((s) => s.id === g.parentId);
       actions.updateGoal(g.id, { parentId: parent?.parentId, order: between(parentSibs, pIdx) });
-      setFocusId(g.id);
+      pendingFocus.current = g.id;
     } else if (e.key === "Backspace" && value === "" && children.length === 0) {
       e.preventDefault();
       const i = rows.findIndex((r) => r.goal.id === g.id);
       actions.removeGoal(g.id);
       const prevRow = i > 0 ? rows[i - 1] : undefined;
-      setFocusId(prevRow ? prevRow.goal.id : PHANTOM);
+      pendingFocus.current = prevRow ? prevRow.goal.id : PHANTOM;
     }
   };
+
+  // runs after every re-render caused by the structural change above,
+  // before the browser paints — reliably moves the caret
+  useLayoutEffect(() => {
+    const id = pendingFocus.current;
+    if (!id) return;
+    const el = id === PHANTOM ? phantomRef.current : inputs.current.get(id);
+    if (el) {
+      pendingFocus.current = null;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
+  });
 
   // phantom bottom row: start typing -> it becomes a real top-level goal
   const onPhantomChange = (v: string) => {
@@ -236,15 +247,8 @@ export function GoalsScreen() {
     const last = lastTop ? orderKey(lastTop) + 1000 : Date.now();
     const id = actions.addGoal({ title: v, order: last });
     setPhantom("");
-    setFocusId(id);
+    pendingFocus.current = id;
   };
-
-  useEffect(() => {
-    if (focusId === PHANTOM && phantomRef.current) {
-      phantomRef.current.focus();
-      setFocusId(null);
-    }
-  }, [focusId]);
 
   return (
     <div className="max-w-[1100px] mx-auto p-4 flex flex-col gap-3">
@@ -252,13 +256,7 @@ export function GoalsScreen() {
 
       <Card>
         {rows.map((r) => (
-          <Row
-            key={r.goal.id}
-            row={r}
-            focused={focusId === r.goal.id}
-            onFocused={() => setFocusId(null)}
-            onKeyDown={onRowKeyDown}
-          />
+          <Row key={r.goal.id} row={r} register={register} onKeyDown={onRowKeyDown} />
         ))}
 
         <div className="flex items-center gap-2">
