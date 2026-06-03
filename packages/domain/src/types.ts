@@ -40,11 +40,12 @@ export interface Workout {
 }
 
 /** A long-term goal. Top-level goals (no parentId) act like milestones and
- *  may contain nested sub-goals referencing them via parentId (one level deep). */
+ *  may contain nested tasks referencing them via parentId — nesting is
+ *  unlimited (tasks can have their own sub-tasks). */
 export interface Goal {
   id: string;
   title: string;
-  /** id of the parent (global) goal; undefined = top-level goal */
+  /** id of the parent goal/task; undefined = top-level goal */
   parentId?: string;
   /** optional free-form note */
   note?: string;

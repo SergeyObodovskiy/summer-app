@@ -171,13 +171,29 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
             }),
           removeGoal: (id) =>
             set((s) => {
-              // cascade: removing a top-level goal also removes its sub-goals
-              const removed = s.goals.filter((g) => g.id === id || g.parentId === id);
+              // cascade: removing a goal removes its whole subtree (any depth)
+              const byParent = new Map<string, string[]>();
+              for (const g of s.goals) {
+                if (!g.parentId) continue;
+                if (!byParent.has(g.parentId)) byParent.set(g.parentId, []);
+                byParent.get(g.parentId)!.push(g.id);
+              }
+              const toRemove = new Set<string>([id]);
+              const stack = [id];
+              while (stack.length) {
+                const cur = stack.pop()!;
+                for (const childId of byParent.get(cur) ?? []) {
+                  if (!toRemove.has(childId)) {
+                    toRemove.add(childId);
+                    stack.push(childId);
+                  }
+                }
+              }
               const t = now();
               const clock = { ...s.clock };
-              for (const g of removed) clock["goalItem:" + g.id] = t;
+              for (const gid of toRemove) clock["goalItem:" + gid] = t;
               return {
-                goals: s.goals.filter((g) => g.id !== id && g.parentId !== id),
+                goals: s.goals.filter((g) => !toRemove.has(g.id)),
                 clock,
               };
             }),
