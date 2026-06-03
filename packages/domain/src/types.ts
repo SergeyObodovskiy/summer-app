@@ -39,12 +39,13 @@ export interface Workout {
   kcal: number;
 }
 
-/** A long-term goal, optionally grouped under a category (e.g. "Туризм"). */
+/** A long-term goal. Top-level goals (no parentId) act like milestones and
+ *  may contain nested sub-goals referencing them via parentId (one level deep). */
 export interface Goal {
   id: string;
   title: string;
-  /** category name; empty/undefined = general list (no category) */
-  cat?: string;
+  /** id of the parent (global) goal; undefined = top-level goal */
+  parentId?: string;
   /** optional free-form note */
   note?: string;
 }

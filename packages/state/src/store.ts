@@ -170,10 +170,17 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
               };
             }),
           removeGoal: (id) =>
-            set((s) => ({
-              goals: s.goals.filter((g) => g.id !== id),
-              clock: { ...s.clock, ["goalItem:" + id]: now() },
-            })),
+            set((s) => {
+              // cascade: removing a top-level goal also removes its sub-goals
+              const removed = s.goals.filter((g) => g.id === id || g.parentId === id);
+              const t = now();
+              const clock = { ...s.clock };
+              for (const g of removed) clock["goalItem:" + g.id] = t;
+              return {
+                goals: s.goals.filter((g) => g.id !== id && g.parentId !== id),
+                clock,
+              };
+            }),
           updateGoal: (id, patch) =>
             set((s) => ({
               goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
