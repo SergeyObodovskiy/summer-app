@@ -121,6 +121,15 @@ export function GoalsScreen() {
     return (g: Goal) => g.order ?? g.createdAt ?? clock["goalItem:" + g.id] ?? 0;
   }, [clock]);
 
+  // migration: items created before the `order` field relied on their sync
+  // clock entry, which is bumped by every edit (so rows jumped while typing).
+  // Freeze the current position as an explicit order once.
+  useEffect(() => {
+    for (const g of goals) {
+      if (g.order === undefined) actions.updateGoal(g.id, { order: orderKey(g) });
+    }
+  }, [goals, orderKey, actions]);
+
   const { tops, tree, rows } = useMemo(() => {
     const byInsertion = (a: Goal, b: Goal) =>
       orderKey(a) - orderKey(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
