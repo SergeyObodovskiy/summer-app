@@ -5,6 +5,16 @@ import { useAppStore, useActions } from "@summer/client";
 import type { Goal } from "@summer/domain";
 import { Card, Btn, inputCls } from "../components/ui";
 
+/** russian plural: plural(3, ["задача", "задачи", "задач"]) -> "задачи" */
+function plural(n: number, forms: [string, string, string]) {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b === 1) return forms[0];
+  if (b >= 2 && b <= 4) return forms[1];
+  return forms[2];
+}
+
 function NoteEditor({
   goal, onDone,
 }: { goal: Goal; onDone: () => void }) {
@@ -95,7 +105,9 @@ function GoalCard({ goal, subs }: { goal: Goal; subs: Goal[] }) {
       <div className="flex items-center gap-2">
         <h2 className="text-[15px] font-semibold text-ink flex-1">{goal.title}</h2>
         {subs.length > 0 && (
-          <span className="text-[12px] text-muted shrink-0">{subs.length} подцел.</span>
+          <span className="text-[12px] text-muted shrink-0">
+            {subs.length} {plural(subs.length, ["задача", "задачи", "задач"])}
+          </span>
         )}
         <RowActions goal={goal} onEditNote={() => setEditingNote((v) => !v)} />
       </div>
@@ -117,11 +129,11 @@ function GoalCard({ goal, subs }: { goal: Goal; subs: Goal[] }) {
         <input
           className={inputCls}
           value={subTitle}
-          placeholder="Добавить подцель, например: побывать в Токио"
+          placeholder="Добавить задачу, например: побывать в Токио"
           onChange={(e) => setSubTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addSub()}
         />
-        <Btn title="+ Подцель" variant="ghost" onClick={addSub} />
+        <Btn title="+ Задача" variant="ghost" onClick={addSub} />
       </div>
     </Card>
   );
@@ -174,7 +186,7 @@ export function GoalsScreen() {
           <Btn title="Добавить цель" onClick={add} />
         </div>
         <p className="text-[12px] text-muted mt-2">
-          Внутри цели можно добавить подцели (как milestone): «съездить в Японию» → «побывать в Токио», «побывать в Хоккайдо». Цель без подцелей — просто обычная цель.
+          Внутри цели можно добавить задачи (как milestone): «съездить в Японию» → «побывать в Токио», «побывать в Хоккайдо». Цель без задач — просто обычная цель.
         </p>
       </Card>
 
