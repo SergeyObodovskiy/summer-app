@@ -27,7 +27,8 @@ export interface Actions {
   removeWorkout: (id: string) => void;
   updateWorkout: (id: string, patch: Partial<Omit<Workout, "id">>) => void;
 
-  addGoal: (g: Omit<Goal, "id">) => void;
+  /** returns the id of the created goal (for focus management in editors) */
+  addGoal: (g: Omit<Goal, "id">) => string;
   removeGoal: (id: string) => void;
   updateGoal: (id: string, patch: Partial<Omit<Goal, "id">>) => void;
 
@@ -161,15 +162,15 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
               clock: { ...s.clock, ["workout:" + id]: now() },
             })),
 
-          addGoal: (g) =>
-            set((s) => {
-              const id = uid();
-              const t = now();
-              return {
-                goals: [...s.goals, { createdAt: t, ...g, id }],
-                clock: { ...s.clock, ["goalItem:" + id]: t },
-              };
-            }),
+          addGoal: (g) => {
+            const id = uid();
+            const t = now();
+            set((s) => ({
+              goals: [...s.goals, { createdAt: t, ...g, id }],
+              clock: { ...s.clock, ["goalItem:" + id]: t },
+            }));
+            return id;
+          },
           removeGoal: (id) =>
             set((s) => {
               // cascade: removing a goal removes its whole subtree (any depth)

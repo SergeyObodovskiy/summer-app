@@ -1,61 +1,23 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore, useActions } from "@summer/client";
 import type { Goal } from "@summer/domain";
-import { Card, Btn, inputCls } from "../components/ui";
+import { Card } from "../components/ui";
 
-/** russian plural: plural(3, ["задача", "задачи", "задач"]) -> "задачи" */
-function plural(n: number, forms: [string, string, string]) {
-  const a = Math.abs(n) % 100;
-  const b = a % 10;
-  if (a > 10 && a < 20) return forms[2];
-  if (b === 1) return forms[0];
-  if (b >= 2 && b <= 4) return forms[1];
-  return forms[2];
-}
+/* Apple Notes-style outline editor:
+   - every row is always editable text (no edit mode)
+   - Enter -> new row below (same level; if the row has children -> first child)
+   - Tab / Shift+Tab -> indent / outdent
+   - Backspace on an empty childless row -> delete it, focus the row above
+   - hover actions: note (✎) and delete subtree (✕) */
 
-type Tree = Map<string | undefined, Goal[]>;
+const PHANTOM = "__new_goal__";
 
-/** Click-to-edit title. Enter/blur saves, Escape cancels, empty keeps the old name. */
-function EditableTitle({ goal, className }: { goal: Goal; className: string }) {
-  const actions = useActions();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(goal.title);
-
-  const save = () => {
-    const t = value.trim();
-    if (t && t !== goal.title) actions.updateGoal(goal.id, { title: t });
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <span
-        className={className + " flex-1 cursor-text rounded px-1 -mx-1 hover:bg-black/5"}
-        title="Нажми, чтобы переименовать"
-        onClick={() => {
-          setValue(goal.title);
-          setEditing(true);
-        }}
-      >
-        {goal.title}
-      </span>
-    );
-  }
-  return (
-    <input
-      className={inputCls + " flex-1"}
-      value={value}
-      autoFocus
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={save}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") save();
-        if (e.key === "Escape") setEditing(false);
-      }}
-    />
-  );
+type Tree = Map<string, Goal[]>;
+interface FlatRow {
+  goal: Goal;
+  depth: number;
 }
 
 function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
@@ -66,154 +28,87 @@ function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
     onDone();
   };
   return (
-    <div className="flex gap-2 mt-1.5">
-      <input
-        className={inputCls}
-        value={note}
-        autoFocus
-        placeholder="Заметка…"
-        onChange={(e) => setNote(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") save();
-          if (e.key === "Escape") onDone();
-        }}
-      />
-      <Btn title="Сохранить" onClick={save} />
-    </div>
+    <input
+      className="w-full bg-transparent text-[12px] text-muted placeholder:text-muted/60 focus:outline-none border-b border-line/60 focus:border-ring py-0.5"
+      value={note}
+      autoFocus
+      placeholder="Заметка… (Enter — сохранить, Esc — отмена)"
+      onChange={(e) => setNote(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") save();
+        if (e.key === "Escape") onDone();
+      }}
+    />
   );
 }
 
-function AddTaskInput({
-  parentId, onDone, autoFocus,
-}: { parentId: string; onDone?: () => void; autoFocus?: boolean }) {
+function Row({
+  row, focused, onFocused, onKeyDown,
+}: {
+  row: FlatRow;
+  focused: boolean;
+  onFocused: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, row: FlatRow, value: string) => void;
+}) {
   const actions = useActions();
-  const [title, setTitle] = useState("");
-  const add = () => {
-    const t = title.trim();
-    if (!t) return;
-    actions.addGoal({ title: t, parentId });
-    setTitle("");
-  };
-  return (
-    <div className="flex gap-2">
-      <input
-        className={inputCls}
-        value={title}
-        autoFocus={autoFocus}
-        placeholder="Добавить задачу, например: побывать в Токио"
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") add();
-          if (e.key === "Escape") onDone?.();
-        }}
-      />
-      <Btn title="+ Задача" variant="ghost" onClick={add} />
-    </div>
-  );
-}
+  const { goal, depth } = row;
+  const [val, setVal] = useState(goal.title);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
 
-function RowActions({
-  goal, onEditNote, onAddChild,
-}: { goal: Goal; onEditNote: () => void; onAddChild?: () => void }) {
-  const actions = useActions();
-  const btn = "text-[12px] text-muted px-1.5 py-0.5 rounded hover:bg-black/5";
+  // external change (sync) -> refresh local value
+  useEffect(() => setVal(goal.title), [goal.title]);
+
+  useEffect(() => {
+    if (focused && ref.current) {
+      ref.current.focus();
+      const len = ref.current.value.length;
+      ref.current.setSelectionRange(len, len);
+      onFocused();
+    }
+  }, [focused, onFocused]);
+
+  const top = depth === 0;
+  const btn = "opacity-0 group-hover:opacity-100 text-[12px] text-muted px-1 rounded hover:bg-black/5 transition-opacity";
+
   return (
-    <span className="flex items-center gap-0.5 shrink-0">
-      {onAddChild && (
-        <button type="button" title="Добавить вложенную задачу" onClick={onAddChild} className={btn + " hover:text-ink"}>
-          +
+    <div className="group" style={{ paddingLeft: depth * 20 }}>
+      <div className="flex items-center gap-2">
+        {top ? null : <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />}
+        <input
+          ref={ref}
+          className={
+            "flex-1 bg-transparent focus:outline-none py-1 " +
+            (top ? "text-[15px] font-semibold text-ink" : "text-[13.5px] text-ink")
+          }
+          value={val}
+          placeholder={top ? "Цель…" : "Задача…"}
+          onChange={(e) => {
+            setVal(e.target.value);
+            actions.updateGoal(goal.id, { title: e.target.value });
+          }}
+          onKeyDown={(e) => onKeyDown(e, row, val)}
+        />
+        <button type="button" title={goal.note ? "Изменить заметку" : "Заметка"} onClick={() => setNoteOpen((v) => !v)} className={btn + " hover:text-ink"}>
+          ✎
         </button>
-      )}
-      <button
-        type="button"
-        title={goal.note ? "Изменить заметку" : "Добавить заметку"}
-        onClick={onEditNote}
-        className={btn + " hover:text-ink"}
-      >
-        ✎
-      </button>
-      <button type="button" title="Удалить (вместе с вложенными)" onClick={() => actions.removeGoal(goal.id)} className={btn + " hover:text-red-600"}>
-        ✕
-      </button>
-    </span>
-  );
-}
-
-/** Recursive task row — unlimited nesting depth. */
-function TaskNode({ goal, tree }: { goal: Goal; tree: Tree }) {
-  const [editingNote, setEditingNote] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const children = tree.get(goal.id) ?? [];
-
-  return (
-    <div className="border-t border-line/60 py-1.5 first:border-t-0">
-      <div className="flex items-center gap-2">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />
-        <EditableTitle goal={goal} className="text-[13.5px] text-ink" />
-        <RowActions goal={goal} onEditNote={() => setEditingNote((v) => !v)} onAddChild={() => setAdding((v) => !v)} />
+        <button type="button" title="Удалить (вместе с вложенными)" onClick={() => actions.removeGoal(goal.id)} className={btn + " hover:text-red-600"}>
+          ✕
+        </button>
       </div>
-      <div className="ml-3.5">
-        {editingNote ? (
-          <NoteEditor goal={goal} onDone={() => setEditingNote(false)} />
-        ) : goal.note ? (
-          <p className="text-[12px] text-muted mt-0.5 whitespace-pre-wrap">{goal.note}</p>
-        ) : null}
-        {adding && (
-          <div className="mt-1.5">
-            <AddTaskInput parentId={goal.id} autoFocus onDone={() => setAdding(false)} />
-          </div>
-        )}
-        {children.length > 0 && (
-          <div className="mt-1 pl-2 border-l border-line/60">
-            {children.map((g) => (
-              <TaskNode key={g.id} goal={g} tree={tree} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function countSubtree(id: string, tree: Tree): number {
-  const children = tree.get(id) ?? [];
-  return children.reduce((acc, c) => acc + 1 + countSubtree(c.id, tree), 0);
-}
-
-function GoalCard({ goal, tree }: { goal: Goal; tree: Tree }) {
-  const [editingNote, setEditingNote] = useState(false);
-  const children = tree.get(goal.id) ?? [];
-  const total = countSubtree(goal.id, tree);
-
-  return (
-    <Card>
-      <div className="flex items-center gap-2">
-        <EditableTitle goal={goal} className="text-[15px] font-semibold text-ink" />
-        {total > 0 && (
-          <span className="text-[12px] text-muted shrink-0">
-            {total} {plural(total, ["задача", "задачи", "задач"])}
-          </span>
-        )}
-        <RowActions goal={goal} onEditNote={() => setEditingNote((v) => !v)} />
-      </div>
-      {editingNote ? (
-        <NoteEditor goal={goal} onDone={() => setEditingNote(false)} />
-      ) : goal.note ? (
-        <p className="text-[12px] text-muted mt-0.5 whitespace-pre-wrap">{goal.note}</p>
-      ) : null}
-
-      {children.length > 0 && (
-        <div className="mt-2 ml-1">
-          {children.map((g) => (
-            <TaskNode key={g.id} goal={g} tree={tree} />
-          ))}
+      {(noteOpen || goal.note) && (
+        <div style={{ paddingLeft: top ? 0 : 14 }} className="pr-10">
+          {noteOpen ? (
+            <NoteEditor goal={goal} onDone={() => setNoteOpen(false)} />
+          ) : (
+            <p className="text-[12px] text-muted whitespace-pre-wrap cursor-text" onClick={() => setNoteOpen(true)}>
+              {goal.note}
+            </p>
+          )}
         </div>
       )}
-
-      <div className="mt-2">
-        <AddTaskInput parentId={goal.id} />
-      </div>
-    </Card>
+    </div>
   );
 }
 
@@ -221,13 +116,18 @@ export function GoalsScreen() {
   const goals = useAppStore((s) => s.goals);
   const clock = useAppStore((s) => s.clock);
   const actions = useActions();
-  const [title, setTitle] = useState("");
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [phantom, setPhantom] = useState("");
+  const phantomRef = useRef<HTMLInputElement>(null);
 
-  const { tops, tree } = useMemo(() => {
-    // stable insertion order: createdAt, fallback to the sync clock for old items
-    const orderKey = (g: Goal) => g.createdAt ?? clock["goalItem:" + g.id] ?? 0;
+  const orderKey = useMemo(() => {
+    return (g: Goal) => g.order ?? g.createdAt ?? clock["goalItem:" + g.id] ?? 0;
+  }, [clock]);
+
+  const { tops, tree, rows } = useMemo(() => {
     const byInsertion = (a: Goal, b: Goal) =>
       orderKey(a) - orderKey(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
     const ids = new Set(goals.map((g) => g.id));
     const tree: Tree = new Map();
     const tops: Goal[] = [];
@@ -240,7 +140,7 @@ export function GoalsScreen() {
         tops.push(g);
       }
     }
-    // guard against accidental cycles in synced data: drop edges that lead back up
+    // cycle guard for synced data: unreachable nodes surface as top-level
     const reachable = new Set<string>();
     const walk = (id: string) => {
       for (const c of tree.get(id) ?? []) {
@@ -255,52 +155,126 @@ export function GoalsScreen() {
     }
     for (const g of goals) {
       if (!reachable.has(g.id)) {
-        tops.push(g); // node trapped in a cycle — show it at top level
+        tops.push(g);
         reachable.add(g.id);
         walk(g.id);
       }
     }
     tops.sort(byInsertion);
     for (const arr of tree.values()) arr.sort(byInsertion);
-    return { tops, tree };
-  }, [goals, clock]);
 
-  const add = () => {
-    const t = title.trim();
-    if (!t) return;
-    actions.addGoal({ title: t });
-    setTitle("");
+    const rows: FlatRow[] = [];
+    const flatten = (list: Goal[], depth: number) => {
+      for (const g of list) {
+        rows.push({ goal: g, depth });
+        flatten(tree.get(g.id) ?? [], depth + 1);
+      }
+    };
+    flatten(tops, 0);
+    return { tops, tree, rows };
+  }, [goals, orderKey]);
+
+  const siblingsOf = (parentId: string | undefined): Goal[] =>
+    parentId ? tree.get(parentId) ?? [] : tops;
+
+  /** order value that places an item between siblings i and i+1 */
+  const between = (sibs: Goal[], i: number): number => {
+    const ga = i >= 0 ? sibs[i] : undefined;
+    const gb = i + 1 < sibs.length ? sibs[i + 1] : undefined;
+    const a = ga ? orderKey(ga) : undefined;
+    const b = gb ? orderKey(gb) : undefined;
+    if (a === undefined && b === undefined) return Date.now();
+    if (a === undefined) return b! - 1000;
+    if (b === undefined) return a + 1000;
+    return (a + b) / 2;
   };
+
+  const onRowKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, row: FlatRow, value: string) => {
+    const g = row.goal;
+    const sibs = siblingsOf(g.parentId);
+    const idx = sibs.findIndex((s) => s.id === g.id);
+    const children = tree.get(g.id) ?? [];
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // row with children -> new row becomes its first child (visually right below)
+      const id = children.length
+        ? actions.addGoal({ title: "", parentId: g.id, order: between(children, -1) })
+        : actions.addGoal({ title: "", parentId: g.parentId, order: between(sibs, idx) });
+      setFocusId(id);
+    } else if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault();
+      const prev = idx > 0 ? sibs[idx - 1] : undefined;
+      if (!prev) return; // nothing to nest under
+      const newSibs = tree.get(prev.id) ?? [];
+      actions.updateGoal(g.id, { parentId: prev.id, order: between(newSibs, newSibs.length - 1) });
+      setFocusId(g.id);
+    } else if (e.key === "Tab" && e.shiftKey) {
+      e.preventDefault();
+      if (!g.parentId) return; // already top-level
+      const parent = goals.find((p) => p.id === g.parentId);
+      const parentSibs = siblingsOf(parent?.parentId);
+      const pIdx = parentSibs.findIndex((s) => s.id === g.parentId);
+      actions.updateGoal(g.id, { parentId: parent?.parentId, order: between(parentSibs, pIdx) });
+      setFocusId(g.id);
+    } else if (e.key === "Backspace" && value === "" && children.length === 0) {
+      e.preventDefault();
+      const i = rows.findIndex((r) => r.goal.id === g.id);
+      actions.removeGoal(g.id);
+      const prevRow = i > 0 ? rows[i - 1] : undefined;
+      setFocusId(prevRow ? prevRow.goal.id : PHANTOM);
+    }
+  };
+
+  // phantom bottom row: start typing -> it becomes a real top-level goal
+  const onPhantomChange = (v: string) => {
+    if (!v) {
+      setPhantom("");
+      return;
+    }
+    const lastTop = tops[tops.length - 1];
+    const last = lastTop ? orderKey(lastTop) + 1000 : Date.now();
+    const id = actions.addGoal({ title: v, order: last });
+    setPhantom("");
+    setFocusId(id);
+  };
+
+  useEffect(() => {
+    if (focusId === PHANTOM && phantomRef.current) {
+      phantomRef.current.focus();
+      setFocusId(null);
+    }
+  }, [focusId]);
 
   return (
     <div className="max-w-[1100px] mx-auto p-4 flex flex-col gap-3">
       <h1 className="text-2xl font-medium text-ink">Цели</h1>
 
       <Card>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            className={inputCls}
-            value={title}
-            placeholder="Новая глобальная цель, например: съездить в Японию"
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && add()}
+        {rows.map((r) => (
+          <Row
+            key={r.goal.id}
+            row={r}
+            focused={focusId === r.goal.id}
+            onFocused={() => setFocusId(null)}
+            onKeyDown={onRowKeyDown}
           />
-          <Btn title="Добавить цель" onClick={add} />
+        ))}
+
+        <div className="flex items-center gap-2">
+          <input
+            ref={phantomRef}
+            className="flex-1 bg-transparent focus:outline-none py-1 text-[15px] font-semibold text-ink placeholder:font-normal placeholder:text-muted/60"
+            value={phantom}
+            placeholder={rows.length ? "Новая цель…" : "Новая цель, например: съездить в Японию"}
+            onChange={(e) => onPhantomChange(e.target.value)}
+          />
         </div>
-        <p className="text-[12px] text-muted mt-2">
-          Внутри цели можно добавлять задачи с неограниченной вложенностью (кнопка «+» у задачи добавляет вложенную). Цель без задач — просто обычная цель.
+
+        <p className="text-[11.5px] text-muted/80 mt-3 border-t border-line/60 pt-2">
+          Enter — новая строка · Tab — вложить · Shift+Tab — наружу · Backspace на пустой — удалить · ✎/✕ — по наведению
         </p>
       </Card>
-
-      {tops.length === 0 && (
-        <Card>
-          <p className="text-[13px] text-muted">Пока нет целей — добавь первую выше.</p>
-        </Card>
-      )}
-
-      {tops.map((g) => (
-        <GoalCard key={g.id} goal={g} tree={tree} />
-      ))}
     </div>
   );
 }
