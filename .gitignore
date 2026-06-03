@@ -5,6 +5,7 @@ dist
 out
 .turbo
 *.log
+*.tsbuildinfo
 .DS_Store
 .env*.local
 apps/desktop/src-tauri/target

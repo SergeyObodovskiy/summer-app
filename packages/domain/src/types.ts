@@ -39,6 +39,16 @@ export interface Workout {
   kcal: number;
 }
 
+/** A long-term goal, optionally grouped under a category (e.g. "Туризм"). */
+export interface Goal {
+  id: string;
+  title: string;
+  /** category name; empty/undefined = general list (no category) */
+  cat?: string;
+  /** optional free-form note */
+  note?: string;
+}
+
 export interface FoodItem {
   name: string;
   kcal: number;
@@ -67,6 +77,8 @@ export interface AppState {
   /** lowercased name -> remembered food */
   foods: Record<string, FoodItem>;
   workouts: Workout[];
+  /** long-term goals, optionally grouped by category */
+  goals: Goal[];
   /** per-field logical timestamps for conflict-free (LWW) merge across clients */
   clock: Record<string, number>;
   /** local-only: last seen forecast snapshot, for change detection */

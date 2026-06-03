@@ -44,7 +44,7 @@ packages/
 
 ### `@summer/domain` — ядро
 Чистый TypeScript, **ноль зависимостей**. Переносится куда угодно, покрыт строгим `tsc`.
-- `types.ts` — `AppState` (включая `clock` для merge), `SyncState`, `Block`, `Workout`, `Meal`…
+- `types.ts` — `AppState` (включая `clock` для merge), `SyncState`, `Block`, `Workout`, `Meal`, `Goal`…
 - `schedule.ts` — данные недели, реестр блоков `BLOCKS` (стабильный `uid`).
 - `logic.ts` — время (`parseDur`/`sequentialTimes`), `isPast`, калории (`goalSport`/`estimateKcal`), КБЖУ (`dayNorm`), погода (`parseForecast`/`diffWeather`).
 - `constants.ts` — `SHORT`, `KBJU_BONUS`, `COMPLETION_LEVELS`.

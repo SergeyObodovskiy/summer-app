@@ -1,4 +1,4 @@
-import type { Meal, SyncState } from "@summer/domain";
+import type { Goal, Meal, SyncState } from "@summer/domain";
 
 /**
  * Conflict-free merge of two app states using per-field LWW (last-writer-wins)
@@ -75,6 +75,7 @@ export function mergeStates(local: SyncState, remote: SyncState): SyncState {
   const goalMoved = mergeRecord(local.goalMoved, remote.goalMoved, lc, rc, "goalMoved:", clock);
   const foods = mergeRecord(local.foods, remote.foods, lc, rc, "foods:", clock);
   const workouts = mergeById(local.workouts, remote.workouts, lc, rc, "workout:", clock);
+  const goals = mergeById<Goal>(local.goals ?? [], remote.goals ?? [], lc, rc, "goalItem:", clock);
 
   // meals: flatten by id (carrying their date), merge, then regroup by date
   type MealLoc = Meal & { __date: string };
@@ -95,6 +96,6 @@ export function mergeStates(local: SyncState, remote: SyncState): SyncState {
 
   return {
     v: Math.max(local.v, remote.v),
-    dayDone, goalLevel, goalMoved, foods, workouts, kbjuLog, layout, clock,
+    dayDone, goalLevel, goalMoved, foods, workouts, goals, kbjuLog, layout, clock,
   };
 }

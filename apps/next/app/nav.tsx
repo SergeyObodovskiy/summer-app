@@ -8,6 +8,7 @@ const tabs = [
   { href: "/kbju", label: "КБЖУ" },
   { href: "/workouts", label: "Тренировки" },
   { href: "/stats", label: "Достижения" },
+  { href: "/goals", label: "Цели" },
   { href: "/settings", label: "Настройки" },
 ];
 

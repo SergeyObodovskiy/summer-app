@@ -33,7 +33,7 @@ export function SettingsScreen() {
     return {
       v: s.v, dayDone: s.dayDone, goalLevel: s.goalLevel, goalMoved: s.goalMoved,
       layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts,
-      clock: s.clock, lastWeather: s.lastWeather, syncConfig: s.syncConfig,
+      goals: s.goals, clock: s.clock, lastWeather: s.lastWeather, syncConfig: s.syncConfig,
     };
   };
 

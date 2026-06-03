@@ -38,7 +38,8 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
       const s = store.getState();
       return {
         v: s.v, dayDone: s.dayDone, goalLevel: s.goalLevel, goalMoved: s.goalMoved,
-        layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts, clock: s.clock,
+        layout: s.layout, kbjuLog: s.kbjuLog, foods: s.foods, workouts: s.workouts,
+        goals: s.goals, clock: s.clock,
       };
     };
 
