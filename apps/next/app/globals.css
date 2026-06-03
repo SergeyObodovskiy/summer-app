@@ -2,5 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #__next { height: 100%; }
-body { margin: 0; background: #f6f7f9; }
+/* shadcn theme tokens (light), mapped from @summer/config palette */
+@layer base {
+  :root {
+    --background: 220 16% 97%;
+    --foreground: 220 14% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 14% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 14% 13%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 220 14% 13%;
+    --accent: 214 100% 97%;
+    --accent-foreground: 221 83% 53%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+  }
+}
