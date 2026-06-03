@@ -17,6 +17,47 @@ function plural(n: number, forms: [string, string, string]) {
 
 type Tree = Map<string | undefined, Goal[]>;
 
+/** Click-to-edit title. Enter/blur saves, Escape cancels, empty keeps the old name. */
+function EditableTitle({ goal, className }: { goal: Goal; className: string }) {
+  const actions = useActions();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(goal.title);
+
+  const save = () => {
+    const t = value.trim();
+    if (t && t !== goal.title) actions.updateGoal(goal.id, { title: t });
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <span
+        className={className + " flex-1 cursor-text rounded px-1 -mx-1 hover:bg-black/5"}
+        title="Нажми, чтобы переименовать"
+        onClick={() => {
+          setValue(goal.title);
+          setEditing(true);
+        }}
+      >
+        {goal.title}
+      </span>
+    );
+  }
+  return (
+    <input
+      className={inputCls + " flex-1"}
+      value={value}
+      autoFocus
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") save();
+        if (e.key === "Escape") setEditing(false);
+      }}
+    />
+  );
+}
+
 function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
   const actions = useActions();
   const [note, setNote] = useState(goal.note ?? "");
@@ -108,7 +149,7 @@ function TaskNode({ goal, tree }: { goal: Goal; tree: Tree }) {
     <div className="border-t border-line/60 py-1.5 first:border-t-0">
       <div className="flex items-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />
-        <span className="text-[13.5px] text-ink flex-1">{goal.title}</span>
+        <EditableTitle goal={goal} className="text-[13.5px] text-ink" />
         <RowActions goal={goal} onEditNote={() => setEditingNote((v) => !v)} onAddChild={() => setAdding((v) => !v)} />
       </div>
       <div className="ml-3.5">
@@ -147,7 +188,7 @@ function GoalCard({ goal, tree }: { goal: Goal; tree: Tree }) {
   return (
     <Card>
       <div className="flex items-center gap-2">
-        <h2 className="text-[15px] font-semibold text-ink flex-1">{goal.title}</h2>
+        <EditableTitle goal={goal} className="text-[15px] font-semibold text-ink" />
         {total > 0 && (
           <span className="text-[12px] text-muted shrink-0">
             {total} {plural(total, ["задача", "задачи", "задач"])}
