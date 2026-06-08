@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncStatus } from "@summer/client";
 
 const tabs = [
   { href: "/", label: "Неделя" },
@@ -35,6 +36,35 @@ export function Nav() {
           </Link>
         );
       })}
+      <SyncBadge />
     </nav>
+  );
+}
+
+function SyncBadge() {
+  const { online, syncing, connected } = useSyncStatus();
+  const { label, color, bg } = !online
+    ? { label: "офлайн", color: "#92400e", bg: "#fef3c7" }
+    : syncing
+    ? { label: "синхронизация…", color: "#1e40af", bg: "#dbeafe" }
+    : connected
+    ? { label: "онлайн", color: "#15803d", bg: "#dcfce7" }
+    : { label: "подключение…", color: "#6b7280", bg: "#f1f3f5" };
+  return (
+    <span
+      title="Статус синхронизации"
+      style={{
+        marginLeft: "auto",
+        alignSelf: "center",
+        fontSize: 12,
+        fontWeight: 600,
+        padding: "4px 10px",
+        borderRadius: 8,
+        color,
+        background: bg,
+      }}
+    >
+      {label}
+    </span>
   );
 }
