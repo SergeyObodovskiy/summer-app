@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAppStore, useActions } from "@summer/client";
-import type { Goal } from "@summer/domain";
+import { validateGoalTitle, type Goal } from "@summer/domain";
 import { Card } from "../components/ui";
 
 /* Apple Notes-style outline editor:
@@ -53,6 +53,7 @@ function Row({
   const actions = useActions();
   const { goal, depth } = row;
   const [val, setVal] = useState(goal.title);
+  const [warn, setWarn] = useState<string | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
 
   // external change (sync) -> refresh local value
@@ -75,9 +76,18 @@ function Row({
           placeholder={top ? "Цель…" : "Задача…"}
           onChange={(e) => {
             setVal(e.target.value);
+            setWarn(null);
             actions.updateGoal(goal.id, { title: e.target.value });
           }}
+          onFocus={() => setWarn(null)}
+          onBlur={() => {
+            // warn on leaving a row with non-empty but invalid content; an empty
+            // row is valid scaffolding (Enter creates one; Backspace removes it)
+            const res = validateGoalTitle(val);
+            setWarn(res.value === "" || res.ok ? null : res.error ?? null);
+          }}
           onKeyDown={(e) => onKeyDown(e, row, val)}
+          aria-invalid={warn ? true : undefined}
         />
         <button type="button" title={goal.note ? "Изменить заметку" : "Заметка"} onClick={() => setNoteOpen((v) => !v)} className={btn + " hover:text-ink"}>
           ✎
@@ -86,6 +96,11 @@ function Row({
           ✕
         </button>
       </div>
+      {warn ? (
+        <p style={{ paddingLeft: top ? 0 : 14 }} className="text-[11.5px] text-red-600 mt-0.5">
+          {warn}
+        </p>
+      ) : null}
       {(noteOpen || goal.note) && (
         <div style={{ paddingLeft: top ? 0 : 14 }} className="pr-10">
           {noteOpen ? (
@@ -106,6 +121,7 @@ export function GoalsScreen() {
   const clock = useAppStore((s) => s.clock);
   const actions = useActions();
   const [phantom, setPhantom] = useState("");
+  const [phantomWarn, setPhantomWarn] = useState<string | null>(null);
   const phantomRef = useRef<HTMLInputElement>(null);
 
   // focus management: rows register their inputs; after a structural change
@@ -246,17 +262,32 @@ export function GoalsScreen() {
     }
   });
 
-  // phantom bottom row: start typing -> it becomes a real top-level goal
+  // phantom bottom row: start typing -> it becomes a real top-level goal,
+  // but only once the title is valid (>= min length, no control chars). A lone
+  // space / single char is held in the field instead of creating a junk goal.
   const onPhantomChange = (v: string) => {
-    if (!v) {
-      setPhantom("");
-      return;
-    }
+    setPhantom(v);
+    setPhantomWarn(null); // typing clears any prior warning
+    const res = validateGoalTitle(v);
+    if (!res.ok) return; // keep the text; nothing created yet
     const lastTop = tops[tops.length - 1];
     const last = lastTop ? orderKey(lastTop) + 1000 : Date.now();
-    const id = actions.addGoal({ title: v, order: last });
+    const id = actions.addGoal({ title: res.value, order: last });
     setPhantom("");
     pendingFocus.current = id;
+  };
+
+  // explicit submit of the phantom: if it never became valid, warn instead of
+  // silently doing nothing (a valid value would already have been created above)
+  const onPhantomKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const res = validateGoalTitle(phantom);
+      if (!res.ok) setPhantomWarn(res.error ?? null);
+    } else if (e.key === "Escape") {
+      setPhantom("");
+      setPhantomWarn(null);
+    }
   };
 
   return (
@@ -275,8 +306,11 @@ export function GoalsScreen() {
             value={phantom}
             placeholder={rows.length ? "Новая цель…" : "Новая цель, например: съездить в Японию"}
             onChange={(e) => onPhantomChange(e.target.value)}
+            onKeyDown={onPhantomKeyDown}
+            aria-invalid={phantomWarn ? true : undefined}
           />
         </div>
+        {phantomWarn ? <p className="text-[11.5px] text-red-600 mt-0.5">{phantomWarn}</p> : null}
 
         <p className="text-[11.5px] text-muted/80 mt-3 border-t border-line/60 pt-2">
           Enter — новая строка · Tab — вложить · Shift+Tab — наружу · Backspace на пустой — удалить · ✎/✕ — по наведению
