@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -qE 'git[[:space:]]+(commit|push)' && printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Коммит/пуш гейтится на ревью (см. CLAUDE.md): сначала покажи дифф и дождись явного одобрения пользователя.\"}}' || true",
+            "statusMessage": "Проверка git commit/push на ревью"
+          }
+        ]
+      }
+    ]
+  }
+}
