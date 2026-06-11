@@ -44,9 +44,11 @@ function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
 }
 
 function Row({
-  row, register, onKeyDown, onLeaveEmpty,
+  row, first, register, onKeyDown, onLeaveEmpty,
 }: {
   row: FlatRow;
+  /** first row overall — skip the top spacing applied between top-level goals */
+  first: boolean;
   register: (id: string, el: HTMLInputElement | null) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, row: FlatRow, value: string) => void;
   /** row left empty (blur) — parent removes it if childless, so no empty goals persist */
@@ -65,7 +67,10 @@ function Row({
   const btn = "opacity-0 group-hover:opacity-100 text-[12px] text-muted px-1 rounded hover:bg-black/5 transition-opacity";
 
   return (
-    <div className="group" style={{ paddingLeft: depth * 20 }}>
+    <div
+      className={"group" + (top && !first ? " mt-5" : "")}
+      style={{ paddingLeft: depth * 20 }}
+    >
       <div className="flex items-center gap-2">
         {top ? null : <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />}
         <input
@@ -320,8 +325,8 @@ export function GoalsScreen() {
       <h1 className="text-2xl font-medium text-ink">Цели</h1>
 
       <Card>
-        {rows.map((r) => (
-          <Row key={r.goal.id} row={r} register={register} onKeyDown={onRowKeyDown} onLeaveEmpty={onLeaveEmpty} />
+        {rows.map((r, i) => (
+          <Row key={r.goal.id} row={r} first={i === 0} register={register} onKeyDown={onRowKeyDown} onLeaveEmpty={onLeaveEmpty} />
         ))}
 
         <div className="flex items-center gap-2">
