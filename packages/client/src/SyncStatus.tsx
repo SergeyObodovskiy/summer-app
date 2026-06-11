@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export interface SyncStatus {
   /** device has network */
@@ -9,25 +9,32 @@ export interface SyncStatus {
   syncing: boolean;
 }
 
-const defaultStatus: SyncStatus = { online: true, connected: false, syncing: false };
+/* External store: status updates re-render ONLY the components that read it
+   (e.g. a badge), not the whole provider tree — avoids a re-render storm. */
 
-const Ctx = createContext<{
-  status: SyncStatus;
-  setStatus: (patch: Partial<SyncStatus>) => void;
-}>({ status: defaultStatus, setStatus: () => {} });
+let status: SyncStatus = { online: true, connected: false, syncing: false };
+const listeners = new Set<() => void>();
 
-export function SyncStatusProvider({ children }: { children: React.ReactNode }) {
-  const [status, set] = useState<SyncStatus>(defaultStatus);
-  const setStatus = useCallback((patch: Partial<SyncStatus>) => set((s) => ({ ...s, ...patch })), []);
-  return <Ctx.Provider value={{ status, setStatus }}>{children}</Ctx.Provider>;
+export function setSyncStatus(patch: Partial<SyncStatus>) {
+  const next = { ...status, ...patch };
+  if (
+    next.online === status.online &&
+    next.connected === status.connected &&
+    next.syncing === status.syncing
+  ) {
+    return; // no change → don't notify (stable snapshot, no extra renders)
+  }
+  status = next;
+  listeners.forEach((l) => l());
 }
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+const getSnapshot = () => status;
 
 /** Read-only sync status for UI badges. */
 export function useSyncStatus(): SyncStatus {
-  return useContext(Ctx).status;
-}
-
-/** Internal: used by useSync to report status. */
-export function useSyncStatusSetter() {
-  return useContext(Ctx).setStatus;
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

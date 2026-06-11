@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { connectSync, getSupabase, type SupabaseConfig, type SyncHandle } from "@summer/data";
 import type { SyncState } from "@summer/domain";
 import { useRawStore } from "./StoreProvider";
-import { useSyncStatusSetter } from "./SyncStatus";
+import { setSyncStatus } from "./SyncStatus";
 
 const writerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -30,14 +30,13 @@ const isOnline = () => (typeof navigator === "undefined" ? true : navigator.onLi
  */
 export function useSync(config: SupabaseConfig | null, code: string | null) {
   const store = useRawStore();
-  const setStatus = useSyncStatusSetter();
   const handle = useRef<SyncHandle | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastJSON = useRef<string>("");
   const ready = useRef(false);
 
   useEffect(() => {
-    setStatus({ online: isOnline(), connected: false, syncing: false });
+    setSyncStatus({ online: isOnline(), connected: false, syncing: false });
     if (!config || !code) return;
 
     let active = true;
@@ -62,15 +61,15 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
 
     const onPushFail = () => {
       ready.current = false;
-      setStatus({ connected: false, syncing: false });
+      setSyncStatus({ connected: false, syncing: false });
       scheduleRetry();
     };
 
     const push = (snap: SyncState) => {
-      setStatus({ syncing: true });
+      setSyncStatus({ syncing: true });
       handle.current
         ?.push(snap)
-        .then(() => setStatus({ syncing: false }))
+        .then(() => setSyncStatus({ syncing: false }))
         .catch(onPushFail);
     };
 
@@ -91,7 +90,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
         handle.current = h;
         ready.current = true;
         backoff = 3000;
-        setStatus({ connected: true, online: true });
+        setSyncStatus({ connected: true, online: true });
         // flush our (possibly merged / offline-accumulated) state once
         const snap = snapshot();
         const json = stable(snap);
@@ -101,7 +100,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
         }
       } catch {
         ready.current = false;
-        setStatus({ connected: false });
+        setSyncStatus({ connected: false });
         scheduleRetry();
       }
     }
@@ -111,7 +110,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
 
     // Web: reconnect the instant the network returns.
     const reconnect = () => {
-      setStatus({ online: true });
+      setSyncStatus({ online: true });
       if (handle.current) {
         try { handle.current.dispose(); } catch { /* ignore */ }
         handle.current = null;
@@ -123,7 +122,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
     };
     const goOffline = () => {
       ready.current = false;
-      setStatus({ online: false, connected: false });
+      setSyncStatus({ online: false, connected: false });
     };
     const hasWin = typeof window !== "undefined" && !!window.addEventListener;
     if (hasWin) {
@@ -155,5 +154,5 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
       handle.current?.dispose();
       handle.current = null;
     };
-  }, [config, code, store, setStatus]);
+  }, [config, code, store]);
 }

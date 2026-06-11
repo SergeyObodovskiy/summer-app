@@ -1,4 +1,5 @@
-import { configFromEnv } from "@summer/data";
+import { useMemo } from "react";
+import { configFromEnv, type SupabaseConfig } from "@summer/data";
 import { useAppStore } from "./StoreProvider";
 import { useSync } from "./useSync";
 
@@ -14,6 +15,13 @@ export function SyncBridge() {
     process.env.EXPO_PUBLIC_SYNC_CODE ??
     null;
 
-  useSync(url && anonKey ? { url, anonKey } : null, code);
+  // Stable config object — otherwise a new {url,anonKey} each render would
+  // re-trigger the useSync effect (reconnect loop).
+  const config = useMemo<SupabaseConfig | null>(
+    () => (url && anonKey ? { url, anonKey } : null),
+    [url, anonKey]
+  );
+
+  useSync(config, code);
   return null;
 }
