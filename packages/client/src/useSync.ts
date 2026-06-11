@@ -42,6 +42,7 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
     let active = true;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let backoff = 3000;
+    let gen = 0; // generation token: only the latest connect() wins, stale ones dispose
     ready.current = false;
     const sb = getSupabase(config);
 
@@ -84,9 +85,16 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
 
     async function connect() {
       if (!active || !code) return;
+      const myGen = ++gen;
+      // Drop any existing/in-flight connection so two connects can't both win.
+      if (handle.current) {
+        try { handle.current.dispose(); } catch { /* ignore */ }
+        handle.current = null;
+      }
       try {
         const h = await connectSync(sb, code, writerId, snapshot(), applyRemote);
-        if (!active) return h.dispose();
+        // Superseded by a newer connect() (or unmounted) while awaiting → dispose, don't leak.
+        if (!active || myGen !== gen) return h.dispose();
         handle.current = h;
         ready.current = true;
         backoff = 3000;
@@ -109,12 +117,10 @@ export function useSync(config: SupabaseConfig | null, code: string | null) {
     connect();
 
     // Web: reconnect the instant the network returns.
+    // connect() bumps the generation token and disposes any existing/in-flight
+    // handle itself, so duplicate online events can't leak a connection.
     const reconnect = () => {
       setSyncStatus({ online: true });
-      if (handle.current) {
-        try { handle.current.dispose(); } catch { /* ignore */ }
-        handle.current = null;
-      }
       if (retry) { clearTimeout(retry); retry = null; }
       backoff = 3000;
       ready.current = false;
