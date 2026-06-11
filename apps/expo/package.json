@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@summer/config": "workspace:*",
+    "@types/node": "^20.19.41",
     "@types/react": "~18.2.45",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5"

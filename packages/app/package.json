@@ -19,6 +19,7 @@
     "nativewind": "*"
   },
   "devDependencies": {
+    "@types/node": "^20.19.41",
     "@types/react": "^18.2.0",
     "react": "18.2.0",
     "react-native": "0.74.5",

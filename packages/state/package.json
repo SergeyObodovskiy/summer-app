@@ -10,5 +10,8 @@
     "@summer/data": "workspace:*",
     "zustand": "^4.5.2"
   },
-  "devDependencies": { "typescript": "^5.4.5" }
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "typescript": "^5.4.5"
+  }
 }
