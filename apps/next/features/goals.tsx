@@ -44,11 +44,13 @@ function NoteEditor({ goal, onDone }: { goal: Goal; onDone: () => void }) {
 }
 
 function Row({
-  row, register, onKeyDown,
+  row, register, onKeyDown, onLeaveEmpty,
 }: {
   row: FlatRow;
   register: (id: string, el: HTMLInputElement | null) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, row: FlatRow, value: string) => void;
+  /** row left empty (blur) — parent removes it if childless, so no empty goals persist */
+  onLeaveEmpty: (row: FlatRow) => void;
 }) {
   const actions = useActions();
   const { goal, depth } = row;
@@ -81,10 +83,11 @@ function Row({
           }}
           onFocus={() => setWarn(null)}
           onBlur={() => {
-            // warn on leaving a row with non-empty but invalid content; an empty
-            // row is valid scaffolding (Enter creates one; Backspace removes it)
             const res = validateGoalTitle(val);
-            setWarn(res.value === "" || res.ok ? null : res.error ?? null);
+            // empty row left behind -> let the parent prune it (no empty goals persist);
+            // non-empty but invalid -> warn; valid -> clear
+            if (res.value === "") onLeaveEmpty(row);
+            else setWarn(res.ok ? null : res.error ?? null);
           }}
           onKeyDown={(e) => onKeyDown(e, row, val)}
           aria-invalid={warn ? true : undefined}
@@ -262,6 +265,28 @@ export function GoalsScreen() {
     }
   });
 
+  // an emptied row (blur) is pruned if it has no children — Enter scaffolds an
+  // empty goal, but a blank row must never persist. Childed empties stay (removing
+  // them would cascade-delete the subtree).
+  const onLeaveEmpty = (r: FlatRow) => {
+    const children = tree.get(r.goal.id) ?? [];
+    if (children.length === 0) actions.removeGoal(r.goal.id);
+  };
+
+  // safety net: leaving the screen with a blank row never typed into (e.g. pressed
+  // Enter, then navigated away without blur) — prune all childless empty goals.
+  const goalsRef = useRef(goals);
+  goalsRef.current = goals;
+  useEffect(() => {
+    return () => {
+      const list = goalsRef.current;
+      const parents = new Set(list.map((g) => g.parentId).filter(Boolean));
+      for (const g of list) {
+        if (g.title.trim() === "" && !parents.has(g.id)) actions.removeGoal(g.id);
+      }
+    };
+  }, [actions]);
+
   // phantom bottom row: start typing -> it becomes a real top-level goal,
   // but only once the title is valid (>= min length, no control chars). A lone
   // space / single char is held in the field instead of creating a junk goal.
@@ -296,7 +321,7 @@ export function GoalsScreen() {
 
       <Card>
         {rows.map((r) => (
-          <Row key={r.goal.id} row={r} register={register} onKeyDown={onRowKeyDown} />
+          <Row key={r.goal.id} row={r} register={register} onKeyDown={onRowKeyDown} onLeaveEmpty={onLeaveEmpty} />
         ))}
 
         <div className="flex items-center gap-2">
