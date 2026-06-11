@@ -14,6 +14,14 @@ import { Card } from "../components/ui";
 
 const PHANTOM = "__new_goal__";
 
+/** compact completion stamp, e.g. "12 июн, 14:30" */
+function formatDone(ts: number): string {
+  const d = new Date(ts);
+  const date = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return `${date}, ${time}`;
+}
+
 type Tree = Map<string, Goal[]>;
 interface FlatRow {
   goal: Goal;
@@ -64,7 +72,9 @@ function Row({
   useEffect(() => setVal(goal.title), [goal.title]);
 
   const top = depth === 0;
+  const done = !!goal.done;
   const btn = "opacity-0 group-hover:opacity-100 text-[12px] text-muted px-1 rounded hover:bg-black/5 transition-opacity";
+  const titleColor = done ? "text-muted line-through" : "text-ink";
 
   return (
     <div
@@ -72,12 +82,25 @@ function Row({
       style={{ paddingLeft: depth * 20 }}
     >
       <div className="flex items-center gap-2">
-        {top ? null : <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={done}
+          title={done ? "Снять отметку" : "Отметить выполненной"}
+          onClick={() => actions.toggleGoalDone(goal.id)}
+          className={
+            "shrink-0 flex items-center justify-center rounded-[5px] border transition-colors " +
+            (top ? "w-[18px] h-[18px]" : "w-4 h-4") + " " +
+            (done ? "bg-foreground border-foreground text-bg" : "border-line hover:border-foreground/50")
+          }
+        >
+          {done ? <span className="text-[11px] leading-none">✓</span> : null}
+        </button>
         <input
           ref={(el) => register(goal.id, el)}
           className={
             "flex-1 bg-transparent focus:outline-none py-1 " +
-            (top ? "text-[15px] font-semibold text-ink" : "text-[13.5px] text-ink")
+            (top ? "text-[15px] font-semibold " : "text-[13.5px] ") + titleColor
           }
           value={val}
           placeholder={top ? "Цель…" : "Задача…"}
@@ -97,6 +120,11 @@ function Row({
           onKeyDown={(e) => onKeyDown(e, row, val)}
           aria-invalid={warn ? true : undefined}
         />
+        {done && goal.doneAt ? (
+          <span className="shrink-0 text-[11px] text-muted whitespace-nowrap" title={`Выполнено ${formatDone(goal.doneAt)}`}>
+            {formatDone(goal.doneAt)}
+          </span>
+        ) : null}
         <button type="button" title={goal.note ? "Изменить заметку" : "Заметка"} onClick={() => setNoteOpen((v) => !v)} className={btn + " hover:text-ink"}>
           ✎
         </button>
@@ -320,9 +348,19 @@ export function GoalsScreen() {
     }
   };
 
+  const named = goals.filter((g) => g.title.trim() !== "");
+  const doneCount = named.filter((g) => g.done).length;
+
   return (
     <div className="max-w-[1100px] mx-auto p-4 flex flex-col gap-3">
-      <h1 className="text-2xl font-medium text-ink">Цели</h1>
+      <div className="flex items-baseline gap-3">
+        <h1 className="text-2xl font-medium text-ink">Цели</h1>
+        {named.length > 0 ? (
+          <span className="text-[13px] text-muted">
+            Выполнено {doneCount} из {named.length}
+          </span>
+        ) : null}
+      </div>
 
       <Card>
         {rows.map((r, i) => (

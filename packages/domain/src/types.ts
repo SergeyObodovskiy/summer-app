@@ -55,6 +55,10 @@ export interface Goal {
   /** explicit sort key among siblings (fractional ranking for inserts
    *  between rows); falls back to createdAt when absent */
   order?: number;
+  /** whether the goal/task is completed */
+  done?: boolean;
+  /** completion timestamp (ms) — set when `done` becomes true, cleared otherwise */
+  doneAt?: number;
 }
 
 export interface FoodItem {

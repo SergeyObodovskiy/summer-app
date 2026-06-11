@@ -31,6 +31,8 @@ export interface Actions {
   addGoal: (g: Omit<Goal, "id">) => string;
   removeGoal: (id: string) => void;
   updateGoal: (id: string, patch: Partial<Omit<Goal, "id">>) => void;
+  /** mark a goal/task done or not; stamps `doneAt` when completing */
+  toggleGoalDone: (id: string, done?: boolean) => void;
 
   addMeal: (date: string, meal: Omit<Meal, "id">) => void;
   removeMeal: (date: string, id: string) => void;
@@ -204,6 +206,18 @@ export function createAppStore(kv: KVStorage): UseBoundStore<StoreApi<Store>> {
               goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
               clock: { ...s.clock, ["goalItem:" + id]: now() },
             })),
+          toggleGoalDone: (id, done) =>
+            set((s) => {
+              const t = now();
+              return {
+                goals: s.goals.map((g) => {
+                  if (g.id !== id) return g;
+                  const next = done ?? !g.done;
+                  return { ...g, done: next, doneAt: next ? t : undefined };
+                }),
+                clock: { ...s.clock, ["goalItem:" + id]: t },
+              };
+            }),
 
           addMeal: (date, meal) =>
             set((s) => {
